@@ -1,0 +1,36 @@
+# Dockerfile for Match Orchestrator
+# This runs inside K8s pods to execute matches
+
+FROM python:3.10-slim
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies (for orchestrator)
+RUN pip install --no-cache-dir \
+    rl-arena>=0.1.0 \
+    numpy>=1.20.0 \
+    gymnasium>=0.28.0
+
+# Copy orchestrator code
+COPY orchestrator/ /app/orchestrator/
+
+# Create directories
+RUN mkdir -p /agent-code /replays /config
+
+# Set environment
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+# Default command
+CMD ["python", "-m", "orchestrator.run_match", "--config", "/config/match-config.json"]

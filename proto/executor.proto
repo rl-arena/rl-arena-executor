@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package executor;
+
+// Executor service for running RL agent matches
+service Executor {
+  // Run a match between agents in the specified environment
+  rpc RunMatch(MatchRequest) returns (MatchResponse);
+  
+  // Validate agent code before execution
+  rpc ValidateAgent(ValidationRequest) returns (ValidationResponse);
+  
+  // Get executor health status
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Request to run a match
+message MatchRequest {
+  string match_id = 1;              // Unique match identifier
+  string environment = 2;            // Environment name (e.g., "pong")
+  repeated AgentData agents = 3;     // List of agents (usually 2)
+  uint32 timeout_sec = 4;            // Match timeout in seconds
+  bool record_replay = 5;            // Whether to record replay data
+}
+
+// Agent data for match execution
+message AgentData {
+  string agent_id = 1;               // Unique agent identifier
+  string code_url = 2;               // URL or path to agent code (deprecated)
+  string docker_image = 5;           // Docker image for agent execution
+  string version = 3;                // Agent version
+  map<string, string> metadata = 4;  // Additional metadata
+}
+
+// Response from match execution
+message MatchResponse {
+  string match_id = 1;               // Match identifier
+  MatchStatus status = 2;            // Match status
+  string winner_agent_id = 3;        // Winner agent ID (empty if draw)
+  repeated AgentResult agent_results = 4;  // Results for each agent
+  string replay_url = 5;             // URL to replay file (if recorded)
+  string error_message = 6;          // Error message if failed
+  uint32 total_steps = 7;            // Total steps executed
+  double execution_time_sec = 8;     // Actual execution time
+}
+
+// Match execution status
+enum MatchStatus {
+  STATUS_UNKNOWN = 0;
+  STATUS_SUCCESS = 1;
+  STATUS_TIMEOUT = 2;
+  STATUS_ERROR = 3;
+  STATUS_CANCELLED = 4;
+}
+
+// Result for individual agent
+message AgentResult {
+  string agent_id = 1;
+  double score = 2;
+  uint32 errors = 3;
+  string error_message = 4;
+}
+
+// Request to validate agent code
+message ValidationRequest {
+  string agent_id = 1;
+  bytes code_zip = 2;                // Zipped agent code
+  string environment = 3;            // Target environment
+}
+
+// Response from validation
+message ValidationResponse {
+  bool valid = 1;
+  repeated string errors = 2;
+  repeated string warnings = 3;
+}
+
+// Health check request
+message HealthCheckRequest {
+  // Empty for now
+}
+
+// Health check response
+message HealthCheckResponse {
+  bool healthy = 1;
+  string version = 2;
+  uint32 active_matches = 3;
+}
