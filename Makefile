@@ -22,10 +22,11 @@ install:
 proto:
 	python -m grpc_tools.protoc \
 		-I./proto \
-		--python_out=. \
-		--grpc_python_out=. \
-		--pyi_out=. \
+		--python_out=./executor \
+		--grpc_python_out=./executor \
+		--pyi_out=./executor \
 		./proto/executor.proto
+	@echo "✅ Proto files generated in executor/ directory"
 
 test:
 	pytest -v --cov=executor --cov-report=term-missing
