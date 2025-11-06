@@ -90,8 +90,8 @@ def test_sandbox_context_manager(config):
 
 @pytest.mark.asyncio
 async def test_run_agent_action_not_implemented(sandbox):
-    """Test that run_agent_action raises NotImplementedError."""
-    with pytest.raises(NotImplementedError):
+    """Test that run_agent_action raises RuntimeError for not implemented features."""
+    with pytest.raises(RuntimeError, match="execution failed"):
         await sandbox.run_agent_action(
             agent_dir="/tmp/test",
             agent_id="test_agent",

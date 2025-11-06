@@ -20,6 +20,15 @@ resource_limits:
   # Network
   network_disabled: true          # Disable network access for security
 
+# Executor configuration
+executor:
+  use_k8s: false                  # Enable Kubernetes mode (set to true for K8s)
+
+# Kubernetes configuration (only used when use_k8s is true)
+k8s:
+  namespace: rl-arena
+  orchestrator_image: rl-arena-orchestrator:latest
+
 # Sandbox configuration
 sandbox:
   # Docker settings
