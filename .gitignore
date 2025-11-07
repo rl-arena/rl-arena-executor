@@ -205,3 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Protocol Buffers generated files (root level only - duplicates)
+/executor_pb2.py
+/executor_pb2_grpc.py
+/executor_pb2.pyi
