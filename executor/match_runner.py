@@ -27,6 +27,7 @@ class MatchResult:
         winner_agent_id: Optional[str] = None,
         agent_results: Optional[Dict[str, Dict[str, Any]]] = None,
         replay_url: Optional[str] = None,
+        replay_html_url: Optional[str] = None,  # HTML replay URL
         error_message: Optional[str] = None,
         total_steps: int = 0,
         execution_time: float = 0.0,
@@ -37,6 +38,7 @@ class MatchResult:
         self.winner_agent_id = winner_agent_id
         self.agent_results = agent_results or {}
         self.replay_url = replay_url
+        self.replay_html_url = replay_html_url
         self.error_message = error_message
         self.total_steps = total_steps
         self.execution_time = execution_time
@@ -142,9 +144,10 @@ class MatchRunner:
             # Finalize replay
             if recorder and result.status == "success":
                 recorder.finalize(winner=result.winner_agent_id, status="completed")
-                replay_path = recorder.save()
-                result.replay_url = replay_path
-                logger.info(f"Replay saved to {replay_path}")
+                replay_paths = recorder.save(save_html=True)  # Save both JSON and HTML
+                result.replay_url = replay_paths.get("json")  # Primary URL is JSON
+                result.replay_html_url = replay_paths.get("html")  # HTML for visualization
+                logger.info(f"Replay saved: JSON={replay_paths.get('json')}, HTML={replay_paths.get('html')}")
 
             # Cleanup
             for agent_id in agent_dirs:
