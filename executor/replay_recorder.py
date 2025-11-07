@@ -1,5 +1,8 @@
 """
 Replay recording module for match data.
+
+This module records match replays in a format compatible with rl-arena-env,
+ensuring that users see the same visualization during training and competition.
 """
 
 import json
@@ -8,6 +11,9 @@ import time
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+import rl_arena
+from rl_arena.utils.replay import replay_to_html
 
 from executor.config import get_config
 from executor.utils import save_json
@@ -134,15 +140,16 @@ class ReplayRecorder:
             f"{self.metadata.total_steps} frames, winner: {winner}"
         )
 
-    def save(self, output_path: Optional[str] = None) -> str:
+    def save(self, output_path: Optional[str] = None, save_html: bool = True) -> Dict[str, str]:
         """
-        Save replay data to file.
+        Save replay data to file(s).
 
         Args:
-            output_path: Output file path (optional)
+            output_path: Output file path for JSON (optional)
+            save_html: Whether to also generate and save HTML replay (default: True)
 
         Returns:
-            Path to saved replay file
+            Dictionary with paths: {"json": "path/to/file.json", "html": "path/to/file.html"}
         """
         if output_path is None:
             replay_dir = Path(self.config.replay_dir)
@@ -155,10 +162,25 @@ class ReplayRecorder:
             "version": "1.0",
         }
 
+        # Save JSON replay
         save_json(replay_data, output_path, indent=2 if not self.config.replay_compress else None)
+        logger.info(f"Saved JSON replay to {output_path}")
 
-        logger.info(f"Saved replay to {output_path}")
-        return output_path
+        result = {"json": output_path}
+
+        # Save HTML replay (Kaggle-style visualization)
+        if save_html:
+            html_path = str(Path(output_path).with_suffix(".html"))
+            try:
+                html_content = self.to_html()
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                result["html"] = html_path
+                logger.info(f"Saved HTML replay to {html_path}")
+            except Exception as e:
+                logger.warning(f"Failed to generate HTML replay: {e}")
+
+        return result
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -171,6 +193,122 @@ class ReplayRecorder:
             "metadata": asdict(self.metadata),
             "frames": [asdict(frame) for frame in self.frames],
             "version": "1.0",
+        }
+
+    def to_html(self) -> str:
+        """
+        Generate HTML5 replay using rl-arena-env's renderer.
+
+        This ensures that the competition replay visualization matches
+        what users see during training with rl-arena-env.
+
+        Returns:
+            Complete HTML string with embedded JavaScript animation
+
+        Raises:
+            ValueError: If environment is not supported for HTML rendering
+        """
+        # Convert executor replay format to rl-arena-env format
+        recording = self._to_rl_arena_format()
+
+        # Use rl-arena-env's replay_to_html function
+        # This guarantees identical visualization between training and competition
+        html = replay_to_html(
+            recording=recording,
+            env_name=self.environment,
+            output_path=None,  # Don't save to file, just return HTML
+        )
+
+        return html
+
+    def _to_rl_arena_format(self) -> Dict[str, Any]:
+        """
+        Convert executor replay format to rl-arena-env recording format.
+
+        Executor format:
+        {
+            "metadata": {...},
+            "frames": [
+                {
+                    "frame_number": 0,
+                    "timestamp": 1234.5,
+                    "observations": {...},
+                    "actions": {...},
+                    "rewards": {...},
+                    "done": false,
+                    "info": {...}
+                }
+            ]
+        }
+
+        rl-arena-env format:
+        {
+            "metadata": {...},
+            "frames": [
+                {
+                    "step": 0,
+                    "state": {...},  # observations
+                    "actions": [...],
+                    "rewards": [...],
+                    "info": {...}
+                }
+            ],
+            "num_frames": 100,
+            "duration": 12.5,
+            "start_time": "2024-01-01T00:00:00",
+            "end_time": "2024-01-01T00:00:12"
+        }
+
+        Returns:
+            Recording in rl-arena-env format
+        """
+        # Convert frames
+        converted_frames = []
+        for frame in self.frames:
+            converted_frame = {
+                "step": frame.frame_number,
+                "state": frame.observations,  # observations → state
+            }
+
+            # Add optional fields
+            if frame.actions:
+                # Convert dict to list for rl-arena-env compatibility
+                converted_frame["actions"] = list(frame.actions.values())
+
+            if frame.rewards:
+                # Convert dict to list
+                converted_frame["rewards"] = list(frame.rewards.values())
+
+            if frame.info:
+                converted_frame["info"] = frame.info
+
+            converted_frames.append(converted_frame)
+
+        # Build metadata
+        metadata = {
+            "environment": self.metadata.environment,
+            "match_id": self.metadata.match_id,
+            "agents": self.metadata.agents,
+        }
+
+        # Calculate duration
+        duration = None
+        if self.metadata.end_time and self.metadata.start_time:
+            duration = self.metadata.end_time - self.metadata.start_time
+
+        return {
+            "metadata": metadata,
+            "frames": converted_frames,
+            "num_frames": len(converted_frames),
+            "duration": duration,
+            "start_time": time.strftime(
+                "%Y-%m-%dT%H:%M:%S", time.localtime(self.metadata.start_time)
+            ),
+            "end_time": (
+                time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(self.metadata.end_time))
+                if self.metadata.end_time
+                else None
+            ),
         }
 
     def get_summary(self) -> Dict[str, Any]:
