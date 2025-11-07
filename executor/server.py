@@ -12,8 +12,8 @@ from typing import Any, Optional
 
 import grpc
 
-# Generated proto imports will be added after running protoc
-# from proto import executor_pb2, executor_pb2_grpc
+# Generated proto imports
+from executor import executor_pb2, executor_pb2_grpc
 
 from executor.config import get_config
 from executor.k8s_runner import K8sMatchRunner
@@ -24,11 +24,9 @@ from executor.validation import AgentValidator
 logger = logging.getLogger(__name__)
 
 
-class ExecutorService:  # (executor_pb2_grpc.ExecutorServicer):
+class ExecutorService(executor_pb2_grpc.ExecutorServicer):
     """
     gRPC service implementation for the Executor.
-
-    Note: Inherits from executor_pb2_grpc.ExecutorServicer after proto compilation
     """
 
     def __init__(self) -> None:
@@ -47,7 +45,9 @@ class ExecutorService:  # (executor_pb2_grpc.ExecutorServicer):
         self.validator = AgentValidator()
         logger.info("ExecutorService initialized")
 
-    def RunMatch(self, request: Any, context: grpc.ServicerContext) -> Any:
+    def RunMatch(
+        self, request: executor_pb2.MatchRequest, context: grpc.ServicerContext
+    ) -> executor_pb2.MatchResponse:
         """
         Handle RunMatch gRPC request.
 
@@ -58,9 +58,6 @@ class ExecutorService:  # (executor_pb2_grpc.ExecutorServicer):
         Returns:
             MatchResponse proto message
         """
-        # TODO: Import proper proto types after generation
-        # request: executor_pb2.MatchRequest
-        # returns: executor_pb2.MatchResponse
 
         try:
             match_id = request.match_id
@@ -99,29 +96,46 @@ class ExecutorService:  # (executor_pb2_grpc.ExecutorServicer):
                 loop.close()
 
             # Convert result to proto response
-            # TODO: Create proper proto response after generation
-            # response = executor_pb2.MatchResponse(
-            #     match_id=result.match_id,
-            #     status=self._convert_status(result.status),
-            #     winner_agent_id=result.winner_agent_id or "",
-            #     replay_url=result.replay_url or "",
-            #     error_message=result.error_message or "",
-            #     total_steps=result.total_steps,
-            #     execution_time_sec=result.execution_time,
-            # )
+            agent_results = []
+            for agent_result in result.agent_results:
+                agent_results.append(
+                    executor_pb2.AgentResult(
+                        agent_id=agent_result.get("agent_id", ""),
+                        score=agent_result.get("score", 0.0),
+                        errors=agent_result.get("errors", 0),
+                        error_message=agent_result.get("error_message", ""),
+                    )
+                )
+
+            response = executor_pb2.MatchResponse(
+                match_id=result.match_id,
+                status=self._convert_status(result.status),
+                winner_agent_id=result.winner_agent_id or "",
+                agent_results=agent_results,
+                replay_url=result.replay_url or "",
+                error_message=result.error_message or "",
+                total_steps=result.total_steps,
+                execution_time_sec=result.execution_time,
+            )
 
             logger.info(f"Completed RunMatch: {match_id}, status: {result.status}")
 
-            # Placeholder return - will be replaced with proper proto response
-            return None
+            return response
 
         except Exception as e:
             logger.error(f"RunMatch failed: {e}", exc_info=True)
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return None
+            # Return error response
+            return executor_pb2.MatchResponse(
+                match_id=request.match_id if request else "",
+                status=executor_pb2.STATUS_ERROR,
+                error_message=str(e),
+            )
 
-    def ValidateAgent(self, request: Any, context: grpc.ServicerContext) -> Any:
+    def ValidateAgent(
+        self, request: executor_pb2.ValidationRequest, context: grpc.ServicerContext
+    ) -> executor_pb2.ValidationResponse:
         """
         Handle ValidateAgent gRPC request.
 
@@ -140,19 +154,25 @@ class ExecutorService:  # (executor_pb2_grpc.ExecutorServicer):
             logger.info(f"Received ValidateAgent request: {agent_id}")
 
             # Extract and validate code
-            # TODO: Implement zip extraction and validation
-            # For now, return placeholder response
+            validation_result = self.validator.validate(code_zip, environment)
 
-            # Placeholder return - will be replaced with proper proto response
-            return None
+            return executor_pb2.ValidationResponse(
+                valid=validation_result.valid,
+                errors=validation_result.errors,
+                warnings=validation_result.warnings,
+            )
 
         except Exception as e:
             logger.error(f"ValidateAgent failed: {e}", exc_info=True)
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return None
+            return executor_pb2.ValidationResponse(
+                valid=False, errors=[str(e)], warnings=[]
+            )
 
-    def HealthCheck(self, request: Any, context: grpc.ServicerContext) -> Any:
+    def HealthCheck(
+        self, request: executor_pb2.HealthCheckRequest, context: grpc.ServicerContext
+    ) -> executor_pb2.HealthCheckResponse:
         """
         Handle HealthCheck gRPC request.
 
@@ -166,25 +186,23 @@ class ExecutorService:  # (executor_pb2_grpc.ExecutorServicer):
         try:
             active_matches = len(self.match_runner.get_active_matches())
 
-            # TODO: Create proper proto response after generation
-            # response = executor_pb2.HealthCheckResponse(
-            #     healthy=True,
-            #     version="0.1.0",
-            #     active_matches=active_matches,
-            # )
+            response = executor_pb2.HealthCheckResponse(
+                healthy=True, version="0.1.0", active_matches=active_matches
+            )
 
             logger.debug(f"Health check: active_matches={active_matches}")
 
-            # Placeholder return
-            return None
+            return response
 
         except Exception as e:
             logger.error(f"HealthCheck failed: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return None
+            return executor_pb2.HealthCheckResponse(
+                healthy=False, version="0.1.0", active_matches=0
+            )
 
-    def _convert_status(self, status: str) -> int:
+    def _convert_status(self, status: str) -> executor_pb2.MatchStatus:
         """
         Convert status string to proto enum.
 
@@ -193,16 +211,14 @@ class ExecutorService:  # (executor_pb2_grpc.ExecutorServicer):
 
         Returns:
             Proto status enum value
-
-        TODO: Replace with actual proto enum after generation
         """
         status_map = {
-            "success": 1,  # STATUS_SUCCESS
-            "timeout": 2,  # STATUS_TIMEOUT
-            "error": 3,  # STATUS_ERROR
-            "cancelled": 4,  # STATUS_CANCELLED
+            "success": executor_pb2.STATUS_SUCCESS,
+            "timeout": executor_pb2.STATUS_TIMEOUT,
+            "error": executor_pb2.STATUS_ERROR,
+            "cancelled": executor_pb2.STATUS_CANCELLED,
         }
-        return status_map.get(status, 0)  # STATUS_UNKNOWN
+        return status_map.get(status, executor_pb2.STATUS_UNKNOWN)
 
 
 def serve() -> None:
@@ -219,8 +235,7 @@ def serve() -> None:
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
 
     # Add service to server
-    # TODO: Add after proto compilation
-    # executor_pb2_grpc.add_ExecutorServicer_to_server(ExecutorService(), server)
+    executor_pb2_grpc.add_ExecutorServicer_to_server(ExecutorService(), server)
 
     # Bind to address
     server.add_insecure_port(address)
