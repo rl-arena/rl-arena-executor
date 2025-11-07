@@ -4,6 +4,7 @@ Match runner module for executing RL agent matches.
 
 import asyncio
 import logging
+import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -13,6 +14,12 @@ from executor.config import get_config
 from executor.replay_recorder import ReplayRecorder
 from executor.sandbox import Sandbox
 from executor.validation import AgentValidator
+
+try:
+    from executor.redis_semaphore import RedisSemaphore
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -47,12 +54,35 @@ class MatchResult:
 class MatchRunner:
     """Manages execution of matches between agents."""
 
-    def __init__(self) -> None:
-        """Initialize match runner."""
+    def __init__(self, redis_url: Optional[str] = None, max_concurrent_matches: int = 10) -> None:
+        """
+        Initialize match runner.
+        
+        Args:
+            redis_url: Redis URL for distributed semaphore (None = no limit)
+            max_concurrent_matches: Maximum concurrent matches (default: 10)
+        """
         self.config = get_config()
         self.validator = AgentValidator()
         self.sandbox = Sandbox()
         self.active_matches: Dict[str, bool] = {}
+        
+        # Redis semaphore for concurrency control
+        self.semaphore: Optional[RedisSemaphore] = None
+        if redis_url and REDIS_AVAILABLE:
+            self.semaphore = RedisSemaphore(
+                redis_url=redis_url,
+                key="executor:concurrent_matches",
+                max_concurrent=max_concurrent_matches,
+                timeout_sec=600,  # 10 minutes timeout
+            )
+            logger.info(
+                f"Concurrency control enabled: max {max_concurrent_matches} matches"
+            )
+        elif redis_url and not REDIS_AVAILABLE:
+            logger.warning("Redis URL provided but redis library not available")
+        else:
+            logger.info("No concurrency limit (Redis not configured)")
 
     async def run_match(
         self,
@@ -79,6 +109,30 @@ class MatchRunner:
             ValueError: If invalid parameters
             RuntimeError: If match execution fails
         """
+        # Acquire semaphore slot (if enabled)
+        semaphore_acquired = False
+        if self.semaphore:
+            logger.info(f"Waiting for semaphore slot for match {match_id}...")
+            semaphore_acquired = await self.semaphore.acquire(timeout_sec=30)
+            
+            if not semaphore_acquired:
+                logger.error(
+                    f"Failed to acquire semaphore for match {match_id} "
+                    f"(all {self.semaphore.max_concurrent} slots busy)"
+                )
+                return MatchResult(
+                    match_id=match_id,
+                    status="queued_timeout",
+                    error_message="Failed to acquire execution slot (system busy)",
+                    execution_time=0.0,
+                )
+            
+            available = await self.semaphore.get_available_slots()
+            logger.info(
+                f"Semaphore acquired for match {match_id} "
+                f"({available} slots remaining)"
+            )
+
         start_time = time.time()
 
         if timeout_sec is None:
@@ -174,6 +228,15 @@ class MatchRunner:
 
         finally:
             self.active_matches.pop(match_id, None)
+            
+            # Release semaphore slot
+            if semaphore_acquired and self.semaphore:
+                await self.semaphore.release()
+                available = await self.semaphore.get_available_slots()
+                logger.info(
+                    f"Semaphore released for match {match_id} "
+                    f"({available + 1} slots now available)"
+                )
 
     async def _execute_match(
         self,

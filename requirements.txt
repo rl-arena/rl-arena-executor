@@ -12,6 +12,9 @@ docker>=7.0.0
 # Configuration
 pyyaml>=6.0.1
 
+# Redis for distributed semaphore
+redis>=5.0.0
+
 # Utilities
 aiofiles>=23.2.1
 python-multipart>=0.0.6
