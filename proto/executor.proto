@@ -38,10 +38,11 @@ message MatchResponse {
   MatchStatus status = 2;            // Match status
   string winner_agent_id = 3;        // Winner agent ID (empty if draw)
   repeated AgentResult agent_results = 4;  // Results for each agent
-  string replay_url = 5;             // URL to replay file (if recorded)
+  string replay_url = 5;             // URL to replay JSON file (if recorded)
   string error_message = 6;          // Error message if failed
   uint32 total_steps = 7;            // Total steps executed
   double execution_time_sec = 8;     // Actual execution time
+  string replay_html_url = 9;        // URL to replay HTML file (if recorded)
 }
 
 // Match execution status

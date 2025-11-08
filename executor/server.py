@@ -97,13 +97,13 @@ class ExecutorService(executor_pb2_grpc.ExecutorServicer):
 
             # Convert result to proto response
             agent_results = []
-            for agent_result in result.agent_results:
+            for agent_id, agent_data in result.agent_results.items():
                 agent_results.append(
                     executor_pb2.AgentResult(
-                        agent_id=agent_result.get("agent_id", ""),
-                        score=agent_result.get("score", 0.0),
-                        errors=agent_result.get("errors", 0),
-                        error_message=agent_result.get("error_message", ""),
+                        agent_id=agent_id,
+                        score=agent_data.get("score", 0.0),
+                        errors=agent_data.get("errors", 0),
+                        error_message=agent_data.get("error_message", ""),
                     )
                 )
 
@@ -113,6 +113,7 @@ class ExecutorService(executor_pb2_grpc.ExecutorServicer):
                 winner_agent_id=result.winner_agent_id or "",
                 agent_results=agent_results,
                 replay_url=result.replay_url or "",
+                replay_html_url=result.replay_html_url or "",
                 error_message=result.error_message or "",
                 total_steps=result.total_steps,
                 execution_time_sec=result.execution_time,

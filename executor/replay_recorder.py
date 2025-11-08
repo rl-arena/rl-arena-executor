@@ -8,6 +8,7 @@ ensuring that users see the same visualization during training and competition.
 import json
 import logging
 import time
+import numpy as np
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -19,6 +20,28 @@ from executor.config import get_config
 from executor.utils import save_json
 
 logger = logging.getLogger(__name__)
+
+
+def _make_json_serializable(obj: Any) -> Any:
+    """
+    Convert numpy arrays and other non-serializable objects to JSON-serializable format.
+    
+    Args:
+        obj: Object to convert
+        
+    Returns:
+        JSON-serializable version of the object
+    """
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {k: _make_json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [_make_json_serializable(item) for item in obj]
+    elif isinstance(obj, (np.integer, np.floating)):
+        return obj.item()
+    else:
+        return obj
 
 
 @dataclass
@@ -104,18 +127,20 @@ class ReplayRecorder:
             logger.warning(f"Max frames ({self.max_frames}) reached, skipping frame")
             return
 
-        # Filter data based on config
-        obs_data = observations if self.include_observations else {}
-        action_data = actions if self.include_actions else {}
+        # Filter data based on config and convert to JSON-serializable format
+        obs_data = _make_json_serializable(observations) if self.include_observations else {}
+        action_data = _make_json_serializable(actions) if self.include_actions else {}
+        rewards_data = _make_json_serializable(rewards)
+        info_data = _make_json_serializable(info or {})
 
         frame = FrameData(
             frame_number=frame_number,
             timestamp=time.time(),
             observations=obs_data,
             actions=action_data,
-            rewards=rewards,
+            rewards=rewards_data,
             done=done,
-            info=info or {},
+            info=info_data,
         )
 
         self.frames.append(frame)

@@ -37,7 +37,7 @@ sandbox:
   
   # File system
   tmp_dir: "/tmp/agent_code"
-  replay_dir: "/tmp/replays"
+  replay_dir: "C:/Users/user/Desktop/수업/2-2/오픈소스소프트웨어/term/rl-arena-backend/storage/replays"
   max_code_size_mb: 50
   
   # Security

@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import rl_arena
@@ -164,21 +165,29 @@ class MatchRunner:
                 agent_id = agent["agent_id"]
                 code_url = agent["code_url"]
 
-                # Validate agent code
-                logger.info(f"Validating agent {agent_id}")
-                # TODO: Download code from URL if needed
-                # For now, assume code_url is a local path
+                # Check if code_url is a Docker image (contains ":" and starts with registry)
+                is_docker_image = ":" in code_url and "/" in code_url and not code_url.startswith("/")
+                
+                if is_docker_image:
+                    # Docker image - skip validation and use image directly
+                    logger.info(f"Agent {agent_id} uses Docker image: {code_url}")
+                    agent_dirs[agent_id] = code_url  # Store Docker image URL
+                else:
+                    # Local code - validate and prepare
+                    logger.info(f"Validating agent {agent_id}")
+                    # TODO: Download code from URL if needed
+                    # For now, assume code_url is a local path
 
-                is_valid, errors, warnings = self.validator.validate_code_directory(code_url)
-                if not is_valid:
-                    raise ValueError(f"Agent {agent_id} validation failed: {errors}")
+                    is_valid, errors, warnings = self.validator.validate_code_directory(code_url)
+                    if not is_valid:
+                        raise ValueError(f"Agent {agent_id} validation failed: {errors}")
 
-                if warnings:
-                    logger.warning(f"Agent {agent_id} warnings: {warnings}")
+                    if warnings:
+                        logger.warning(f"Agent {agent_id} warnings: {warnings}")
 
-                # Prepare agent code
-                agent_dir = self.sandbox.prepare_agent_code(code_url, agent_id)
-                agent_dirs[agent_id] = agent_dir
+                    # Prepare agent code
+                    agent_dir = self.sandbox.prepare_agent_code(code_url, agent_id)
+                    agent_dirs[agent_id] = agent_dir
 
             # Run match with timeout
             try:
@@ -199,9 +208,19 @@ class MatchRunner:
             if recorder and result.status == "success":
                 recorder.finalize(winner=result.winner_agent_id, status="completed")
                 replay_paths = recorder.save(save_html=True)  # Save both JSON and HTML
-                result.replay_url = replay_paths.get("json")  # Primary URL is JSON
-                result.replay_html_url = replay_paths.get("html")  # HTML for visualization
-                logger.info(f"Replay saved: JSON={replay_paths.get('json')}, HTML={replay_paths.get('html')}")
+                
+                # Convert absolute paths to relative paths for Backend storage
+                # Backend expects paths relative to storage/ directory (e.g., "replays/match_id.json")
+                json_path = replay_paths.get("json")
+                html_path = replay_paths.get("html")
+                
+                if json_path:
+                    # Extract just the filename and prepend "replays/"
+                    result.replay_url = f"replays/{Path(json_path).name}"
+                if html_path:
+                    result.replay_html_url = f"replays/{Path(html_path).name}"
+                
+                logger.info(f"Replay saved: JSON={result.replay_url}, HTML={result.replay_html_url}")
 
             # Cleanup
             for agent_id in agent_dirs:
@@ -258,13 +277,15 @@ class MatchRunner:
 
         Returns:
             MatchResult
-
-        TODO: Implement proper agent loading and action execution
         """
+        import sys
+        import importlib.util
+        from pathlib import Path
+        
         agent_ids = [agent["agent_id"] for agent in agents]
 
-        # Reset environment
-        observations = env.reset()
+        # Reset environment (returns observations list and info dict)
+        observations, reset_info = env.reset()
 
         # Initialize agent results
         agent_results = {
@@ -272,12 +293,60 @@ class MatchRunner:
             for agent_id in agent_ids
         }
 
+        # Load agent instances
+        agent_instances = {}
+        for i, agent_id in enumerate(agent_ids):
+            agent_dir = agent_dirs[agent_id]
+            
+            try:
+                # Find agent.py or main.py
+                agent_path = Path(agent_dir)
+                agent_file = None
+                
+                if (agent_path / "agent.py").exists():
+                    agent_file = agent_path / "agent.py"
+                elif (agent_path / "main.py").exists():
+                    agent_file = agent_path / "main.py"
+                else:
+                    # Single .py file case
+                    py_files = list(agent_path.glob("*.py"))
+                    if py_files:
+                        agent_file = py_files[0]
+                
+                if not agent_file:
+                    raise FileNotFoundError(f"No Python file found in {agent_dir}")
+                
+                # Load module dynamically
+                spec = importlib.util.spec_from_file_location(f"agent_{agent_id}", agent_file)
+                if spec is None or spec.loader is None:
+                    raise ImportError(f"Failed to load spec from {agent_file}")
+                
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[f"agent_{agent_id}"] = module
+                spec.loader.exec_module(module)
+                
+                # Try to create agent instance
+                if hasattr(module, "create_agent"):
+                    agent_instances[agent_id] = module.create_agent(player_id=i)
+                    logger.info(f"Loaded agent {agent_id} using create_agent() factory")
+                elif hasattr(module, "Agent"):
+                    agent_instances[agent_id] = module.Agent(player_id=i)
+                    logger.info(f"Loaded agent {agent_id} using Agent class")
+                else:
+                    raise AttributeError(f"No create_agent() function or Agent class found in {agent_file}")
+                
+            except Exception as e:
+                logger.error(f"Failed to load agent {agent_id}: {e}")
+                return MatchResult(
+                    match_id=match_id,
+                    status="error",
+                    error_message=f"Failed to load agent {agent_id}: {e}",
+                    total_steps=0,
+                )
+
         done = False
         step_count = 0
         max_steps = self.config.get("resource_limits.max_steps_per_match", 10000)
-
-        # TODO: Load agent classes from agent_dirs
-        # For now, this is a placeholder implementation
 
         while not done and step_count < max_steps:
             # Check if match was cancelled
@@ -285,37 +354,53 @@ class MatchRunner:
                 logger.warning(f"Match {match_id} was cancelled")
                 break
 
-            # Get actions from agents
-            actions = {}
-            for agent_id in agent_ids:
-                # TODO: Call agent to get action
-                # This should use the sandbox to securely execute agent code
-                # For now, use random actions as placeholder
+            # Get actions from agents (as list, not dict)
+            actions = []
+            for i, agent_id in enumerate(agent_ids):
                 try:
-                    action = env.action_space.sample()
-                    actions[agent_id] = action
+                    agent_instance = agent_instances[agent_id]
+                    observation = observations[i] if isinstance(observations, list) else observations
+                    
+                    # Call agent's action method
+                    if hasattr(agent_instance, "act"):
+                        action = agent_instance.act(observation)
+                    elif hasattr(agent_instance, "get_action"):
+                        action = agent_instance.get_action(observation)
+                    elif hasattr(agent_instance, "predict"):
+                        action = agent_instance.predict(observation)
+                    else:
+                        raise AttributeError(f"Agent has no act(), get_action(), or predict() method")
+                    
+                    actions.append(action)
+                    
                 except Exception as e:
                     logger.error(f"Agent {agent_id} failed to produce action: {e}")
                     agent_results[agent_id]["errors"] += 1
                     agent_results[agent_id]["error_message"] = str(e)
                     # Use random action as fallback
-                    actions[agent_id] = env.action_space.sample()
+                    actions.append(env.action_space.sample())
 
             # Step environment
             try:
-                observations, rewards, done, info = env.step(actions)
+                observations, rewards, terminated, truncated, info = env.step(actions)
+                done = terminated or truncated
 
-                # Update scores
-                for agent_id, reward in rewards.items():
-                    agent_results[agent_id]["score"] += reward
+                # Update scores (rewards is a list, not dict)
+                for i, agent_id in enumerate(agent_ids):
+                    agent_results[agent_id]["score"] += rewards[i]
 
                 # Record frame
                 if recorder:
+                    # Convert actions/observations/rewards lists to dicts for recorder
+                    actions_dict = {agent_ids[i]: actions[i] for i in range(len(actions))}
+                    observations_dict = {agent_ids[i]: observations[i] for i in range(len(observations))}
+                    rewards_dict = {agent_ids[i]: rewards[i] for i in range(len(rewards))}
+                    
                     recorder.record_frame(
                         frame_number=step_count,
-                        observations=observations,
-                        actions=actions,
-                        rewards=rewards,
+                        observations=observations_dict,
+                        actions=actions_dict,
+                        rewards=rewards_dict,
                         done=done,
                         info=info,
                     )

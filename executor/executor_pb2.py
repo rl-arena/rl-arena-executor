@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0e\x65xecutor.proto\x12\x08\x65xecutor\"\x86\x01\n\x0cMatchRequest\x12\x10\n\x08match_id\x18\x01 \x01(\t\x12\x13\n\x0b\x65nvironment\x18\x02 \x01(\t\x12#\n\x06\x61gents\x18\x03 \x03(\x0b\x32\x13.executor.AgentData\x12\x13\n\x0btimeout_sec\x18\x04 \x01(\r\x12\x15\n\rrecord_replay\x18\x05 \x01(\x08\"\xbc\x01\n\tAgentData\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x10\n\x08\x63ode_url\x18\x02 \x01(\t\x12\x14\n\x0c\x64ocker_image\x18\x05 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\t\x12\x33\n\x08metadata\x18\x04 \x03(\x0b\x32!.executor.AgentData.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xeb\x01\n\rMatchResponse\x12\x10\n\x08match_id\x18\x01 \x01(\t\x12%\n\x06status\x18\x02 \x01(\x0e\x32\x15.executor.MatchStatus\x12\x17\n\x0fwinner_agent_id\x18\x03 \x01(\t\x12,\n\ragent_results\x18\x04 \x03(\x0b\x32\x15.executor.AgentResult\x12\x12\n\nreplay_url\x18\x05 \x01(\t\x12\x15\n\rerror_message\x18\x06 \x01(\t\x12\x13\n\x0btotal_steps\x18\x07 \x01(\r\x12\x1a\n\x12\x65xecution_time_sec\x18\x08 \x01(\x01\"U\n\x0b\x41gentResult\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\r\n\x05score\x18\x02 \x01(\x01\x12\x0e\n\x06\x65rrors\x18\x03 \x01(\r\x12\x15\n\rerror_message\x18\x04 \x01(\t\"L\n\x11ValidationRequest\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x10\n\x08\x63ode_zip\x18\x02 \x01(\x0c\x12\x13\n\x0b\x65nvironment\x18\x03 \x01(\t\"E\n\x12ValidationResponse\x12\r\n\x05valid\x18\x01 \x01(\x08\x12\x0e\n\x06\x65rrors\x18\x02 \x03(\t\x12\x10\n\x08warnings\x18\x03 \x03(\t\"\x14\n\x12HealthCheckRequest\"O\n\x13HealthCheckResponse\x12\x0f\n\x07healthy\x18\x01 \x01(\x08\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x16\n\x0e\x61\x63tive_matches\x18\x03 \x01(\r*q\n\x0bMatchStatus\x12\x12\n\x0eSTATUS_UNKNOWN\x10\x00\x12\x12\n\x0eSTATUS_SUCCESS\x10\x01\x12\x12\n\x0eSTATUS_TIMEOUT\x10\x02\x12\x10\n\x0cSTATUS_ERROR\x10\x03\x12\x14\n\x10STATUS_CANCELLED\x10\x04\x32\xdf\x01\n\x08\x45xecutor\x12;\n\x08RunMatch\x12\x16.executor.MatchRequest\x1a\x17.executor.MatchResponse\x12J\n\rValidateAgent\x12\x1b.executor.ValidationRequest\x1a\x1c.executor.ValidationResponse\x12J\n\x0bHealthCheck\x12\x1c.executor.HealthCheckRequest\x1a\x1d.executor.HealthCheckResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0e\x65xecutor.proto\x12\x08\x65xecutor\"\x86\x01\n\x0cMatchRequest\x12\x10\n\x08match_id\x18\x01 \x01(\t\x12\x13\n\x0b\x65nvironment\x18\x02 \x01(\t\x12#\n\x06\x61gents\x18\x03 \x03(\x0b\x32\x13.executor.AgentData\x12\x13\n\x0btimeout_sec\x18\x04 \x01(\r\x12\x15\n\rrecord_replay\x18\x05 \x01(\x08\"\xbc\x01\n\tAgentData\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x10\n\x08\x63ode_url\x18\x02 \x01(\t\x12\x14\n\x0c\x64ocker_image\x18\x05 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\t\x12\x33\n\x08metadata\x18\x04 \x03(\x0b\x32!.executor.AgentData.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x84\x02\n\rMatchResponse\x12\x10\n\x08match_id\x18\x01 \x01(\t\x12%\n\x06status\x18\x02 \x01(\x0e\x32\x15.executor.MatchStatus\x12\x17\n\x0fwinner_agent_id\x18\x03 \x01(\t\x12,\n\ragent_results\x18\x04 \x03(\x0b\x32\x15.executor.AgentResult\x12\x12\n\nreplay_url\x18\x05 \x01(\t\x12\x15\n\rerror_message\x18\x06 \x01(\t\x12\x13\n\x0btotal_steps\x18\x07 \x01(\r\x12\x1a\n\x12\x65xecution_time_sec\x18\x08 \x01(\x01\x12\x17\n\x0freplay_html_url\x18\t \x01(\t\"U\n\x0b\x41gentResult\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\r\n\x05score\x18\x02 \x01(\x01\x12\x0e\n\x06\x65rrors\x18\x03 \x01(\r\x12\x15\n\rerror_message\x18\x04 \x01(\t\"L\n\x11ValidationRequest\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x10\n\x08\x63ode_zip\x18\x02 \x01(\x0c\x12\x13\n\x0b\x65nvironment\x18\x03 \x01(\t\"E\n\x12ValidationResponse\x12\r\n\x05valid\x18\x01 \x01(\x08\x12\x0e\n\x06\x65rrors\x18\x02 \x03(\t\x12\x10\n\x08warnings\x18\x03 \x03(\t\"\x14\n\x12HealthCheckRequest\"O\n\x13HealthCheckResponse\x12\x0f\n\x07healthy\x18\x01 \x01(\x08\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x16\n\x0e\x61\x63tive_matches\x18\x03 \x01(\r*q\n\x0bMatchStatus\x12\x12\n\x0eSTATUS_UNKNOWN\x10\x00\x12\x12\n\x0eSTATUS_SUCCESS\x10\x01\x12\x12\n\x0eSTATUS_TIMEOUT\x10\x02\x12\x10\n\x0cSTATUS_ERROR\x10\x03\x12\x14\n\x10STATUS_CANCELLED\x10\x04\x32\xdf\x01\n\x08\x45xecutor\x12;\n\x08RunMatch\x12\x16.executor.MatchRequest\x1a\x17.executor.MatchResponse\x12J\n\rValidateAgent\x12\x1b.executor.ValidationRequest\x1a\x1c.executor.ValidationResponse\x12J\n\x0bHealthCheck\x12\x1c.executor.HealthCheckRequest\x1a\x1d.executor.HealthCheckResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,8 +33,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_AGENTDATA_METADATAENTRY']._loaded_options = None
   _globals['_AGENTDATA_METADATAENTRY']._serialized_options = b'8\001'
-  _globals['_MATCHSTATUS']._serialized_start=933
-  _globals['_MATCHSTATUS']._serialized_end=1046
+  _globals['_MATCHSTATUS']._serialized_start=958
+  _globals['_MATCHSTATUS']._serialized_end=1071
   _globals['_MATCHREQUEST']._serialized_start=29
   _globals['_MATCHREQUEST']._serialized_end=163
   _globals['_AGENTDATA']._serialized_start=166
@@ -42,17 +42,17 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_AGENTDATA_METADATAENTRY']._serialized_start=307
   _globals['_AGENTDATA_METADATAENTRY']._serialized_end=354
   _globals['_MATCHRESPONSE']._serialized_start=357
-  _globals['_MATCHRESPONSE']._serialized_end=592
-  _globals['_AGENTRESULT']._serialized_start=594
-  _globals['_AGENTRESULT']._serialized_end=679
-  _globals['_VALIDATIONREQUEST']._serialized_start=681
-  _globals['_VALIDATIONREQUEST']._serialized_end=757
-  _globals['_VALIDATIONRESPONSE']._serialized_start=759
-  _globals['_VALIDATIONRESPONSE']._serialized_end=828
-  _globals['_HEALTHCHECKREQUEST']._serialized_start=830
-  _globals['_HEALTHCHECKREQUEST']._serialized_end=850
-  _globals['_HEALTHCHECKRESPONSE']._serialized_start=852
-  _globals['_HEALTHCHECKRESPONSE']._serialized_end=931
-  _globals['_EXECUTOR']._serialized_start=1049
-  _globals['_EXECUTOR']._serialized_end=1272
+  _globals['_MATCHRESPONSE']._serialized_end=617
+  _globals['_AGENTRESULT']._serialized_start=619
+  _globals['_AGENTRESULT']._serialized_end=704
+  _globals['_VALIDATIONREQUEST']._serialized_start=706
+  _globals['_VALIDATIONREQUEST']._serialized_end=782
+  _globals['_VALIDATIONRESPONSE']._serialized_start=784
+  _globals['_VALIDATIONRESPONSE']._serialized_end=853
+  _globals['_HEALTHCHECKREQUEST']._serialized_start=855
+  _globals['_HEALTHCHECKREQUEST']._serialized_end=875
+  _globals['_HEALTHCHECKRESPONSE']._serialized_start=877
+  _globals['_HEALTHCHECKRESPONSE']._serialized_end=956
+  _globals['_EXECUTOR']._serialized_start=1074
+  _globals['_EXECUTOR']._serialized_end=1297
 # @@protoc_insertion_point(module_scope)

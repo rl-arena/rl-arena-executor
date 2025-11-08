@@ -23,10 +23,10 @@ class AgentValidator:
 
     def validate_code_directory(self, code_dir: str) -> Tuple[bool, List[str], List[str]]:
         """
-        Validate agent code directory.
+        Validate agent code directory or single file.
 
         Args:
-            code_dir: Path to agent code directory
+            code_dir: Path to agent code directory or single Python file
 
         Returns:
             Tuple of (is_valid, errors, warnings)
@@ -36,11 +36,25 @@ class AgentValidator:
 
         code_path = Path(code_dir)
 
-        # Check if directory exists
+        # Check if path exists
         if not code_path.exists():
-            errors.append(f"Code directory does not exist: {code_dir}")
+            errors.append(f"Code path does not exist: {code_dir}")
             return False, errors, warnings
 
+        # If it's a single file, validate only that file
+        if code_path.is_file():
+            if not str(code_path).endswith('.py'):
+                errors.append(f"File is not a Python file: {code_dir}")
+                return False, errors, warnings
+            
+            file_errors, file_warnings = self._validate_python_file(str(code_path))
+            errors.extend(file_errors)
+            warnings.extend(file_warnings)
+            
+            is_valid = len(errors) == 0
+            return is_valid, errors, warnings
+
+        # If it's a directory, validate all Python files in it
         # Check directory size
         dir_size = get_dir_size(code_dir)
         max_size_bytes = self.config.max_code_size_mb * 1024 * 1024
@@ -99,19 +113,42 @@ class AgentValidator:
 
             # Check for syntax errors
             try:
-                ast.parse(content)
+                tree = ast.parse(content)
             except SyntaxError as e:
                 errors.append(f"Syntax error in {file_path}: {e}")
                 return errors, warnings
 
-            # Check for forbidden imports
+            # Check for forbidden imports and function calls using AST
             forbidden = self.config.forbidden_imports
             if forbidden:
-                for forbidden_import in forbidden:
-                    if forbidden_import in content:
-                        errors.append(
-                            f"Forbidden import '{forbidden_import}' found in {file_path}"
-                        )
+                for node in ast.walk(tree):
+                    # Check for function calls like eval(), exec(), etc.
+                    if isinstance(node, ast.Call):
+                        if isinstance(node.func, ast.Name):
+                            func_name = node.func.id
+                            if func_name in forbidden:
+                                errors.append(
+                                    f"Forbidden function call '{func_name}()' found in {file_path}"
+                                )
+                    
+                    # Check for imports like 'import os.system', 'from os import system'
+                    elif isinstance(node, ast.Import):
+                        for alias in node.names:
+                            if any(f in alias.name for f in forbidden):
+                                errors.append(
+                                    f"Forbidden import '{alias.name}' found in {file_path}"
+                                )
+                    
+                    elif isinstance(node, ast.ImportFrom):
+                        if node.module and any(f in node.module for f in forbidden):
+                            errors.append(
+                                f"Forbidden import 'from {node.module}' found in {file_path}"
+                            )
+                        for alias in node.names:
+                            if alias.name in forbidden:
+                                errors.append(
+                                    f"Forbidden import '{alias.name}' from {node.module} found in {file_path}"
+                                )
 
             # Check for potentially dangerous patterns
             dangerous_patterns = [

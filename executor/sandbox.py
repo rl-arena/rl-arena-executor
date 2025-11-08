@@ -44,7 +44,7 @@ class Sandbox:
         Prepare agent code for execution.
 
         Args:
-            code_source: Path to code directory or zip file bytes
+            code_source: Path to code directory, single Python file, or zip file bytes
             agent_id: Agent identifier
             is_zip: Whether code_source is a zip file
 
@@ -62,12 +62,17 @@ class Sandbox:
             if is_zip:
                 # Extract zip to agent directory
                 extract_zip(code_source, agent_dir)
-            else:
+            elif os.path.isfile(code_source):
+                # Single file - copy it to agent directory
+                filename = os.path.basename(code_source)
+                dest_file = os.path.join(agent_dir, filename)
+                shutil.copy2(code_source, dest_file)
+                logger.info(f"Copied single file {filename} to {agent_dir}")
+            elif os.path.isdir(code_source):
                 # Copy directory contents
-                if os.path.isdir(code_source):
-                    shutil.copytree(code_source, agent_dir, dirs_exist_ok=True)
-                else:
-                    raise ValueError(f"Invalid code source: {code_source}")
+                shutil.copytree(code_source, agent_dir, dirs_exist_ok=True)
+            else:
+                raise ValueError(f"Invalid code source: {code_source}")
 
             logger.info(f"Prepared agent code for {agent_id} at {agent_dir}")
             return agent_dir
