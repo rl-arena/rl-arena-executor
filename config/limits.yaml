@@ -1,0 +1,78 @@
+# Resource limits for agent execution
+resource_limits:
+  # CPU limits
+  cpu_count: 1                    # Number of CPU cores
+  cpu_period: 100000              # CPU period in microseconds
+  cpu_quota: 100000               # CPU quota in microseconds (100% of 1 core)
+  
+  # Memory limits
+  memory_limit: "512m"            # Maximum memory (e.g., "512m", "1g")
+  memory_swap: "512m"             # Memory + swap limit
+  
+  # Time limits
+  step_timeout_sec: 5             # Maximum time per agent step
+  match_timeout_sec: 300          # Maximum total match time (5 minutes)
+  init_timeout_sec: 30            # Maximum time for agent initialization
+  
+  # Process limits
+  pids_limit: 50                  # Maximum number of processes
+  
+  # Network
+  network_disabled: true          # Disable network access for security
+
+# Executor configuration
+executor:
+  use_k8s: false                  # Enable Kubernetes mode (set to true for K8s)
+
+# Kubernetes configuration (only used when use_k8s is true)
+k8s:
+  namespace: rl-arena
+  orchestrator_image: rl-arena-orchestrator:latest
+
+# Sandbox configuration
+sandbox:
+  # Docker settings
+  use_docker: true                # Use Docker for sandboxing
+  docker_image: "python:3.10-slim"
+  
+  # File system
+  tmp_dir: "/tmp/agent_code"
+  replay_dir: "C:/Users/user/Desktop/수업/2-2/오픈소스소프트웨어/term/rl-arena-backend/storage/replays"
+  max_code_size_mb: 50
+  
+  # Security
+  read_only_root: true
+  drop_capabilities: true
+  no_new_privileges: true
+
+# Validation settings
+validation:
+  max_file_size_mb: 10
+  allowed_extensions:
+    - ".py"
+    - ".txt"
+    - ".json"
+  
+  forbidden_imports:
+    - "os.system"
+    - "subprocess"
+    - "eval"
+    - "exec"
+    - "compile"
+    - "__import__"
+  
+  max_lines: 5000
+
+# Replay recording
+replay:
+  format: "json"                  # Output format: "json" or "html"
+  compress: true                  # Compress replay files
+  max_frames: 10000               # Maximum frames to record
+  include_observations: true      # Include full observations
+  include_actions: true           # Include agent actions
+
+# Logging
+logging:
+  level: "INFO"                   # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "json"                  # "json" or "text"
+  output: "stdout"                # "stdout" or file path
